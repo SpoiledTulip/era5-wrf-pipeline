@@ -1,0 +1,8 @@
+# Install into a private, site-compatible environment, not a shared environment.
+# wrf-python may require a compatible NumPy/compiler stack; use the site's build.
+numpy>=1.26,<2
+PyYAML>=6,<7
+netCDF4>=1.6,<2
+xarray>=2024.1
+wrf-python>=1.3.4,<2
+cdsapi>=0.7,<1

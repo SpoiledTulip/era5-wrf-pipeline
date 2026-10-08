@@ -28,18 +28,18 @@ import csv
 from pathlib import Path
 import numpy as np
 
-# wrf.getvar 变量名 → (绘图用语, 单位)。z 需要 gpm 换算。
+# wrf.getvar 变量名 → (绘图用语, 单位)。
 VAR_MAP = {
     "slp":   ("Sea level pressure", "hPa",      1.0),
-    "z":     ("Geopotential height", "gpm",     1.0 / 9.80665),   # m -> gpm
+    "z":     ("Geopotential height", "m",       1.0),
     "tk":    ("Temperature", "K",               1.0),
     "tc":    ("Temperature", "degC",            1.0),
     "rh":    ("Relative humidity", "%",         1.0),
-    "avo":   ("Absolute vorticity", "1e-5 s-1", 1e5),
+    "avo":   ("Absolute vorticity", "1e-5 s-1", 1.0),
     "pvo":   ("Potential vorticity", "PVU",     1.0),
     "cape":  ("CAPE", "J kg-1",                 1.0),
     "pw":    ("Precipitable water", "mm",       1.0),
-    "uvmet10": ("10 m wind", "m s-1",           1.0),
+    "uvmet10": ("10 m wind speed", "m s-1",     1.0),
     "ua":    ("U wind", "m s-1",                1.0),
     "va":    ("V wind", "m s-1",                1.0),
     "rain":  ("Accumulated rainfall", "mm",     1.0),   # rainc+rainnc
@@ -57,15 +57,22 @@ def _load(wrfout):
 
 
 # 三维（带气压层）变量；其余为二维诊断量
-LEVEL_VARS = ("ua", "va", "z", "tk", "rh", "avo", "pvo")
+LEVEL_VARS = ("ua", "va", "z", "tk", "tc", "rh", "avo", "pvo")
 D2_VARS = ("slp", "uvmet10", "t2", "rain", "pw", "cape")
 
 
 def _field(ds, getvar, name, timeidx, level, need_level=True):
     """取变量。need_level=True 时三维变量必须给 --level；False 则返回整层原始场。"""
     if name == "rain":
-        return (np.asarray(getvar(ds, "rainc", timeidx=timeidx), dtype=float)
-                + np.asarray(getvar(ds, "rainnc", timeidx=timeidx), dtype=float))
+        return (np.asarray(getvar(ds, "RAINC", timeidx=timeidx), dtype=float)
+                + np.asarray(getvar(ds, "RAINNC", timeidx=timeidx), dtype=float))
+    if name == "t2":
+        return np.asarray(getvar(ds, "T2", timeidx=timeidx), dtype=float) - 273.15
+    if name == "cape":
+        return np.asarray(getvar(ds, "cape_2d", timeidx=timeidx), dtype=float)[0]
+    if name == "uvmet10":
+        uv = np.asarray(getvar(ds, "uvmet10", timeidx=timeidx), dtype=float)
+        return np.hypot(uv[0], uv[1])
     if name in LEVEL_VARS:
         if need_level and level is None:
             raise SystemExit(f"--var {name} 需要 --level（如 500）")
@@ -76,12 +83,12 @@ def _field(ds, getvar, name, timeidx, level, need_level=True):
     return np.asarray(getvar(ds, name, timeidx=timeidx, **kw), dtype=float)
 
 
-def _at_level(arr, ds, getvar, level):
-    """把气压层变量降维到指定层的 2D 场。"""
-    from wrf import getvar as gv
-    p = np.asarray(gv(ds, "pressure"))
-    idx = int(np.argmin(np.abs(p[:, 0, 0] - float(level) * 100.0)))
-    return arr[idx]
+def _at_level(arr, ds, getvar, level, timeidx):
+    """Interpolate on pressure in hPa for the requested time, masking below-ground levels."""
+    from wrf import interplevel
+    p = np.asarray(getvar(ds, "pressure", timeidx=timeidx), dtype=float)
+    result = interplevel(arr, p, float(level), meta=False)
+    return np.asarray(np.ma.filled(result, np.nan), dtype=float)
 
 
 def _slice_area(lat, lon, lat0, lon0, radius_km):
@@ -104,19 +111,21 @@ def cmd_plane(args):
         t = args.time if args.time >= 0 else nt + args.time
         field = _field(ds, getvar, args.var, t, args.level)
         if args.level is not None:
-            field = _at_level(field, ds, getvar, args.level)
+            if args.var not in LEVEL_VARS:
+                raise SystemExit("--level is only valid for three-dimensional variables")
+            field = _at_level(field, ds, getvar, args.level, t)
         out = {"lon": lon, "lat": lat, "field": field.astype(np.float32),
-               "var": args.var, "time_index": np.array([t])}
+               "var": args.var, "unit": VAR_MAP[args.var][1],
+               "time_utc": _stamp(ds, t), "time_index": np.array([t])}
 
         if args.with_wind:
             if args.level is not None:
-                u = _at_level(np.asarray(getvar(ds, "ua", timeidx=t), dtype=float),
-                              ds, getvar, args.level)
-                v = _at_level(np.asarray(getvar(ds, "va", timeidx=t), dtype=float),
-                              ds, getvar, args.level)
+                uv = np.asarray(getvar(ds, "uvmet", timeidx=t), dtype=float)
+                u = _at_level(uv[0], ds, getvar, args.level, t)
+                v = _at_level(uv[1], ds, getvar, args.level, t)
             else:
-                u = np.asarray(getvar(ds, "u10", timeidx=t), dtype=float)
-                v = np.asarray(getvar(ds, "v10", timeidx=t), dtype=float)
+                uv = np.asarray(getvar(ds, "uvmet10", timeidx=t), dtype=float)
+                u, v = uv[0], uv[1]
             out["u"] = u.astype(np.float32)
             out["v"] = v.astype(np.float32)
 
@@ -148,7 +157,9 @@ def cmd_series(args):
         for t in range(nt):
             field = _field(ds, getvar, args.var, t, args.level)
             if args.level is not None:
-                field = _at_level(field, ds, getvar, args.level)
+                if args.var not in LEVEL_VARS:
+                    raise SystemExit("--level is only valid for three-dimensional variables")
+                field = _at_level(field, ds, getvar, args.level, t)
             val = float(np.nanmean(field[sj, si]))
             rows.append((_stamp(ds, t), round(val, 4)))
         out_path = Path(args.out)
@@ -184,7 +195,9 @@ def cmd_profile(args):
         np.savez_compressed(
             out_path,
             pressure=p[:, j, i].astype(np.float32),
-            height_gpm=z[:, j, i].astype(np.float32),
+            height_m=z[:, j, i].astype(np.float32),
+            unit=VAR_MAP[args.var][1],
+            pressure_unit="hPa",
             field=field[:, j, i].astype(np.float32),
             var=args.var,
             lat=lat[j, i], lon=lon[j, i],

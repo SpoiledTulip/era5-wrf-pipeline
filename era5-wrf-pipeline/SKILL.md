@@ -30,7 +30,7 @@ description: "区域 WRF 科研流水线：CDS/ERA5 下载、昆山曙光或其�
 
 在超算案例目录建立 `case.yaml`、`data/`、`wps/`、`wrf/`、`extract/`、`plots/`、`logs/`、`status/`。按 `references/case-config-guide.md` 生成 namelist 和 sbatch，不手改已生成文件。
 
-先运行 `scripts/validate_case.py case.yaml`，至少检查：
+先运行 `scripts/validate_case.py case.yaml`，检查网格整除和子域边界、配置时间窗、资料顶层覆盖及 time_step 经验上限。WPS 后填写实际层数，再加 `--metgrid-levels <实际值>` 核对。脚本不读取数据文件，也不证明实验设计有效；整个工作流仍须完成：
 
 - `(e_we-1)`、`(e_sn-1)` 与嵌套比整除；
 - 子域边界距父域边缘至少 5 格且不越界；
@@ -96,6 +96,7 @@ description: "区域 WRF 科研流水线：CDS/ERA5 下载、昆山曙光或其�
 
 ## 环境注意
 
+- 本地绘图依赖见 `requirements-local.txt`；远端依赖范围见 `requirements-hpc.txt`，需核对站点 Python/NumPy/编译器兼容性，不修改共享环境。
 - 本地绘图需 matplotlib ≥3.9 与 cartopy；`wxplot.china_map` 固定使用 Natural Earth
   `10m` 分辨率。**不要改回 cartopy 默认的 110m** —— 多数机器只缓存了 10m，
   用 110m 会触发联网下载，离线环境直接失败。首次在新机器跑前，先确认

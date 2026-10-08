@@ -276,7 +276,8 @@ def footnote(ax, text, style="draft"):
     scale = STYLE.get(style, STYLE["draft"])["scale"]
     ax.text(0.995, 0.008, text, transform=ax.transAxes,
             fontsize=6 * scale, ha="right", va="bottom",
-            style="italic", color="#666666", zorder=10)
+            style="italic", color="#333333", zorder=10,
+            bbox={"facecolor": "white", "edgecolor": "none", "alpha": 0.85, "pad": 2})
 
 
 def save(fig, path, style="draft"):

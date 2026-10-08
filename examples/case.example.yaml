@@ -1,0 +1,48 @@
+name: example_case
+start_utc: "2026-08-05_00:00:00"
+duration_hours: 72
+output_interval_minutes: 180
+time_step: 60
+domain:
+  projection: lambert
+  ref_lat: 28.0
+  ref_lon: 129.0
+  truelat1: 30.0
+  truelat2: 60.0
+  stand_lon: 129.0
+  geog_data_res: default
+  geog_data_path: /path/to/WPS_GEOG
+  domains:
+    - dx: 15000
+      dy: 15000
+      e_we: 170
+      e_sn: 108
+      parent_id: 1
+      parent_grid_ratio: 1
+      i_parent_start: 1
+      j_parent_start: 1
+    - dx: 5000
+      dy: 5000
+      e_we: 136
+      e_sn: 148
+      parent_id: 1
+      parent_grid_ratio: 3
+      i_parent_start: 10
+      j_parent_start: 37
+vertical:
+  e_vert: 37
+  p_top_requested: 5000
+  num_metgrid_levels: null
+physics:
+  mp_physics: 6
+  cu_physics: 1
+  bl_pbl_physics: 1
+  sf_sfclay_physics: 1
+  sf_surface_physics: 2
+  ra_lw_physics: 4
+  ra_sw_physics: 4
+driver:
+  source: ERA5
+  interval_seconds: 21600
+  area: [39, 104, 17, 141]
+  pressure_levels: [1000, 925, 850, 700, 500, 300, 200, 100, 50]
