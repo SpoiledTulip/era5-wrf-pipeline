@@ -1,10 +1,16 @@
 # ERA5 WRF Pipeline
 
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+[![Pipeline checks](https://github.com/SpoiledTulip/era5-wrf-pipeline/actions/workflows/tests.yml/badge.svg)](https://github.com/SpoiledTulip/era5-wrf-pipeline/actions/workflows/tests.yml)
+
 **从 ERA5 驱动数据到 WRF 超算模拟，再到本地科研气象图的可复用 Agent Skill。**
 
 面向区域数值天气预报、天气个例研究和 WRF 结果分析。包含工作流指令、站点配置说明、报错诊断参考及轻量提取、绘图脚本；以昆山曙光 SLURM 环境为参考，也可根据实际站点调整。
 
 > 这不是开箱即用的一键 WRF 程序。下载脚本、namelist 和作业脚本需要由智能体按确认后的实验配置生成；使用者须具备 CDS 访问权限、SSH 连接和已安装的 WRF/WPS 环境。
+
+> **许可**：MIT License，可自由使用、修改、分发与商用，**要求保留原始版权声明**。
+> 详见 [LICENSE](LICENSE)；`v0.1.1` 及更早版本未附许可证。
 
 ## 流程
 
@@ -71,10 +77,16 @@ https://github.com/SpoiledTulip/era5-wrf-pipeline/tree/main/skills/era5-wrf-pipe
 
 ## 许可
 
-本项目采用 [MIT License](LICENSE)。
+**本项目采用 [MIT License](LICENSE)** —— 可自由使用、修改、分发与商用，
+唯一要求是保留原始版权声明。
 
-> 早期版本未附许可证，等于默认保留所有权利。若你在该版本下使用过本项目，
-> 请以本版本为准。
+```
+MIT License · Copyright (c) 2026 SpoiledTulip
+```
+
+> ⚠️ `v0.1.1` 及更早的版本未附许可证，等同「保留所有权利」。
+> 若你在那些版本下使用过本项目，请以 `v0.2.0` 及以后为准。
+> 各版本的许可状态以对应 tag 中的 `LICENSE` 文件为准。
 
 ## 环境与私有配置
 
@@ -157,7 +169,8 @@ GitHub Actions 在 Python 3.11/3.12 上执行相同离线测试。测试包含�
 - 原始 `wrfout` 留在超算，只回传轻量提取结果和图片。
 - 地图边界、变量单位、时区和来源必须核对；科研图不等同于业务预报产品。
 - 示例模块版本和路径须按实际站点验证；安装 skill 不代表已完成端到端模拟验证。
-- 尚未选定 LICENSE；不要把仓库公开可见理解为已授予任意使用、修改和再分发权限。
+- 本项目的使用条款见 [MIT License](LICENSE)；版权声明须随分发保留。
+  若需引用，请注明来源与版本。
 
 ## 技术参考
 

@@ -57,6 +57,33 @@ class RepositoryLayoutTests(unittest.TestCase):
         self.assertIn(plugin["version"], versions,
                       f"README 未提及当前版本 v{plugin['version']}")
 
+    def test_readme_license_matches_license_file(self):
+        """README 的许可表述必须与实际 LICENSE 文件一致。
+
+        这类矛盾不会报错、不会影响运行，只会静默误导使用者：
+        例如 LICENSE 已存在，README 却说「尚未选定 LICENSE」。
+        """
+        readme = (ROOT / "README.md").read_text(encoding="utf-8")
+        self.assertTrue((ROOT / "LICENSE").is_file())
+        self.assertIn("MIT", readme, "LICENSE 是 MIT，但 README 未提及")
+
+        # 不得再声称尚未选定许可证
+        for stale in ("尚未选定 LICENSE", "没有许可证", "无 LICENSE"):
+            self.assertNotIn(
+                stale, readme,
+                f"README 仍含过时表述「{stale}」，而 LICENSE 文件已存在")
+
+    def test_readme_points_to_license_file(self):
+        """README 应链接到 LICENSE 文件，方便使用者查看条款。"""
+        readme = (ROOT / "README.md").read_text(encoding="utf-8")
+        self.assertIn("](LICENSE)", readme, "README 未链接 LICENSE 文件")
+
+    def test_no_stale_license_claim_in_skill(self):
+        """SKILL.md 也不得声称无许可证。"""
+        text = (SKILL_DIR / "SKILL.md").read_text(encoding="utf-8")
+        for stale in ("尚未选定 LICENSE", "没有许可证"):
+            self.assertNotIn(stale, text, f"SKILL.md 含过时表述「{stale}」")
+
 
 class EvalsTests(unittest.TestCase):
     def setUp(self):
