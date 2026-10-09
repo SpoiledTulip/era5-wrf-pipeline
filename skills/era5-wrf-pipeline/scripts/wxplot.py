@@ -95,61 +95,131 @@ def setup(language="en"):
 
 
 # ---------------------------------------------------------------- 底图
+# 每个矢量文件用哪几个字段判断"这条边界是不是中国的"。
+# ⚠️ 不同 Natural Earth 矢量的字段名并不相同，不能统一用 ADM0_NAME：
+#   admin_0_boundary_lines_land   → 只有 ADM0_LEFT / ADM0_RIGHT，没有 ADM0_NAME
+#   admin_1_states_provinces_lines → 有 ADM0_NAME
+# 字段名在不同版本/来源间大小写也可能不同，判定时统一转小写。
+BOUNDARY_FILES = (
+    # (相对路径, 线色, 线宽, 判定字段名)
+    ("ne_10m_admin0/ne_10m_admin_0_boundary_lines_land.shp",
+     "#444444", 1.0, ("adm0_left", "adm0_right")),
+    ("ne_10m_admin1/ne_10m_admin_1_states_provinces_lines.shp",
+     "#888888", 0.5, ("adm0_name",)),
+)
+
+# 视为"中国"的属性值（大小写不敏感）
+CHINA_NAMES = frozenset({"china", "中华人民共和国", "中国"})
+
+# 标注过近、需要错开的省级行政区（避免文字叠在一起）
+# 例如港珠澳一带：澳门(113.5,22.2) 与 香港(114.2,22.3) 原坐标几乎重合。
+LABEL_OFFSETS = {
+    "香港": (1.05, 0.40),
+    "澳门": (-0.75, -0.95),
+}
+
+
+def _is_china(attributes, keys):
+    """判断一条边界要素是否与中国相关。
+
+    attributes: shapefile 记录属性（键名大小写不敏感）
+    keys: 该文件中用于判定的字段名（小写）
+    """
+    low = {str(k).lower(): v for k, v in (attributes or {}).items()}
+    for key in keys:
+        value = low.get(key)
+        if value is None:
+            continue
+        if str(value).strip().lower() in CHINA_NAMES:
+            return True
+    return False
+
+
+def _make_feature(name, ne_scale, **style):
+    """构造底图要素。
+
+    ⚠️ 样式必须在【构造时】传入。cartopy 的 FeatureArtist 把颜色存在 _kwargs，
+    绘制时只读 _kwargs；构造完再 setattr 只是挂了个没人读的属性，图上完全无效
+    （会导致海洋/陆地/湖泊全部无填充，湖泊显示为黑色实心斑块）。
+    """
+    style.setdefault("facecolor", "none")
+    return cfeature.NaturalEarthFeature("physical", name, ne_scale, **style)
+
+
 def china_map(ax, extent, gis_root=None, language="en",
-              label_provinces=None, coast=True, ocean=True, ne_scale="10m"):
+              label_provinces=None, coast=True, ocean=True, ne_scale="10m",
+              strict=True):
     """画中国区域底图。
 
     extent: [west, east, south, north]
     gis_root: Natural Earth 矢量根目录（含 ne_10m_admin0 / ne_10m_admin1）
     label_provinces: 要标注的省名列表（中文键）；None=自动按范围判定
     ne_scale: 底图要素分辨率，默认 "10m"（与省界/国界同级，且通常已缓存）
+    strict: True 时，给了 gis_root 却一条边界都没画出来会直接抛错。
+            科研图缺国界是合规问题，默认宁可报错也不静默出图；
+            仅离线演示等场景才设为 False。
 
     ⚠️ 不要用默认的 110m：cfeature.LAND/OCEAN/LAKES 默认取 110m，
     若本地未缓存会触发联网下载，离线或受限环境下会直接失败。
     这里统一固定到 ne_scale，缺数据时给出明确提示而不是默默联网。
+
+    ⚠️ gis_root 需为 Natural Earth 原始未裁剪矢量。部分边界数据
+    （含国内常用的裁剪版本）没有 ADM0 系列字段，会被静默跳过——
+    这也是 strict 默认开启的原因。
     """
     ax.set_extent(extent, crs=ccrs.PlateCarree())
 
-    def _feat(name, **kw):
-        f = cfeature.NaturalEarthFeature("physical", name, ne_scale,
-                                         facecolor="none")
-        f = f.with_scale(ne_scale)
-        for k, v in kw.items():
-            setattr(f, k, v)
-        return f
-
+    # ── 底图要素：颜色构造时传入，不用事后 setattr ──────────────────
     try:
         if ocean:
-            ax.add_feature(_feat("ocean", facecolor="#d6e8f0"), zorder=0)
-        ax.add_feature(_feat("land", facecolor="#f5f0e6"), zorder=0)
-        ax.add_feature(_feat("lakes", facecolor="#cfe3ec"), zorder=1)
+            ax.add_feature(_make_feature("ocean", ne_scale,
+                                         facecolor="#d6e8f0"), zorder=0)
+        ax.add_feature(_make_feature("land", ne_scale,
+                                     facecolor="#f5f0e6"), zorder=0)
+        ax.add_feature(_make_feature("lakes", ne_scale,
+                                     facecolor="#cfe3ec"), zorder=1)
         if coast:
-            ax.add_feature(_feat("coastline", edgecolor="#333333", linewidth=0.7),
+            ax.add_feature(_make_feature("coastline", ne_scale,
+                                         edgecolor="#333333", linewidth=0.7),
                            zorder=2)
     except Exception as exc:
         print(f"[wxplot] 底图要素 {ne_scale} 不可用（{exc}）。"
               f"请先在有网环境运行一次以缓存 Natural Earth 数据，"
               f"或改用 ne_scale='50m'。")
 
+    # ── 国界 / 省界：按各文件的字段名分别筛选 ──────────────────────
+    border_drawn = 0
     if gis_root:
         root = os.fspath(gis_root)
-        for rel, color, width in (
-            ("ne_10m_admin0/ne_10m_admin_0_boundary_lines_land.shp", "#444444", 1.0),
-            ("ne_10m_admin1/ne_10m_admin_1_states_provinces_lines.shp", "#888888", 0.5),
-        ):
+        for rel, color, width, keys in BOUNDARY_FILES:
             path = os.path.join(root, rel)
             if not os.path.exists(path):
                 print(f"[wxplot] 缺矢量：{path}")
                 continue
+            hit = 0
             for rec in shpreader.Reader(path).records():
-                if rec.attributes.get("ADM0_NAME") == "China":
+                if _is_china(rec.attributes, keys):
                     ax.add_geometries([rec.geometry], ccrs.PlateCarree(),
                                       facecolor="none", edgecolor=color,
                                       linewidth=width, zorder=3)
+                    hit += 1
+            if hit == 0:
+                print(f"[wxplot] ⚠️ {os.path.basename(path)} 命中 0 条："
+                      f"字段 {keys} 未匹配到中国，该层不会出现在图上。")
+            border_drawn += hit
 
+    if gis_root and border_drawn == 0:
+        message = ("[wxplot] 未画出任何国界/省界（命中 0 条）。"
+                   "科研图缺国界是合规问题：请核对 gis_root 下矢量的字段名，"
+                   "或在图注明确「边界仅供示意」。")
+        if strict:
+            raise RuntimeError(message)
+        print(message + "（strict=False，继续出图）")
+
+    # ── 省名标注 ──────────────────────────────────────────────────
     names = PROVINCE_LABELS.get(language, PROVINCE_LABELS["en"])
     if label_provinces is None:
-        # 落在范围里的省自动标注（留 15% 边距避免边缘挤字）
+        # 落在范围里的省自动标注（留 2% 边距避免边缘挤字）
         dx = (extent[1] - extent[0]) * 0.02
         dy = (extent[3] - extent[2]) * 0.02
         label_provinces = [
@@ -161,7 +231,8 @@ def china_map(ax, extent, gis_root=None, language="en",
         if p not in PROVINCE_XY:
             continue
         x, y = PROVINCE_XY[p]
-        ax.text(x, y, names.get(p, p), ha="center", va="center",
+        ox, oy = LABEL_OFFSETS.get(p, (0.0, 0.0))  # 港澳等近邻错开
+        ax.text(x + ox, y + oy, names.get(p, p), ha="center", va="center",
                 fontsize=10, color="#666666",
                 transform=ccrs.PlateCarree(), zorder=5,
                 path_effects=[pe.withStroke(linewidth=2.8, foreground="white")])
