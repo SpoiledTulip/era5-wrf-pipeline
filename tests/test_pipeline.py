@@ -138,6 +138,16 @@ class ExtractionTests(unittest.TestCase):
         ds = SimpleNamespace(variables={"Times": np.array([list("2026-08-05_00:00:00")], dtype="S1")})
         self.assertEqual(extract_wrf._stamp(ds, 0), "2026-08-05_00:00:00")
 
+    def test_track_edge_hit_detects_lost_center(self):
+        """最低点贴窗口边缘 = 可能跟丢，必须能识别出来。"""
+        shape = (11, 11)
+        self.assertTrue(extract_wrf._edge_hit(0, 5, shape), "上边缘应判为贴边")
+        self.assertTrue(extract_wrf._edge_hit(10, 5, shape), "下边缘应判为贴边")
+        self.assertTrue(extract_wrf._edge_hit(5, 0, shape), "左边缘应判为贴边")
+        self.assertTrue(extract_wrf._edge_hit(5, 10, shape), "右边缘应判为贴边")
+        self.assertFalse(extract_wrf._edge_hit(5, 5, shape), "窗内不应误报")
+        self.assertFalse(extract_wrf._edge_hit(1, 9, shape), "次边缘不应误报")
+
 
 class PlotTests(unittest.TestCase):
     def test_offline_demo_nonblank(self):

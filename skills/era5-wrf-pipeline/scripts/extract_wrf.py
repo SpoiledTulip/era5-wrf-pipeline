@@ -216,6 +216,7 @@ def cmd_track(args):
         lon = np.asarray(ds.variables["XLONG"][0])
         rows = []
         prev = None
+        warned = []
         for t in range(len(ds.dimensions["Time"])):
             slp = np.asarray(getvar(ds, "slp", timeidx=t), dtype=float)
             slp[:3, :] = np.nan; slp[-3:, :] = np.nan
@@ -230,6 +231,12 @@ def cmd_track(args):
                 sub = slp[j0:j1, i0:i1]
                 dj, di = np.unravel_index(np.nanargmin(sub), sub.shape)
                 j, i = j0 + dj, i0 + di
+                # 跟丢检测：窗内最低点若贴着窗口边缘，说明真实中心可能在窗外，
+                # 继续跟下去会给出看似正常、实际错误的路径。
+                if _edge_hit(dj, di, sub.shape):
+                    warned.append((_stamp(ds, t), "hit search window edge"))
+                if (j, i) == prev:
+                    warned.append((_stamp(ds, t), "center did not move"))
             prev = (j, i)
             rows.append((_stamp(ds, t), round(float(lat[j, i]), 3),
                          round(float(lon[j, i]), 3), round(float(slp[j, i]), 1)))
@@ -240,6 +247,13 @@ def cmd_track(args):
             w.writerow(["time", "lat", "lon", "slp_hPa"])
             w.writerows(rows)
         print(f"wrote {out_path} ({len(rows)} rows, window={args.window})")
+        if warned:
+            print(f"⚠️ 疑似跟丢 {len(warned)} 次（路径可能不可信）：")
+            for stamp, why in warned[:5]:
+                print(f"   {stamp}  {why}")
+            if len(warned) > 5:
+                print(f"   ... 另有 {len(warned) - 5} 次")
+            print("   建议：加大 --window，或先确认台风中心全程在域内。")
     finally:
         ds.close()
     return 0
@@ -248,6 +262,15 @@ def cmd_track(args):
 def _stamp(ds, t):
     raw = ds.variables["Times"][t]
     return "".join(x.decode() if isinstance(x, bytes) else str(x) for x in raw)
+
+
+def _edge_hit(dj, di, shape):
+    """最低点是否落在搜索窗口边缘。
+
+    落在边缘说明真实最低点可能在窗外，继续跟随会得到错误路径——
+    这类错误不会抛异常，只会安静地给出一条看似合理的假路径。
+    """
+    return dj in (0, shape[0] - 1) or di in (0, shape[1] - 1)
 
 
 def main() -> int:
