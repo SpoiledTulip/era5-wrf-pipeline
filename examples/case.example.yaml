@@ -46,3 +46,10 @@ driver:
   interval_seconds: 21600
   area: [39, 104, 17, 141]
   pressure_levels: [1000, 925, 850, 700, 500, 300, 200, 100, 50]
+  # ERA5 的 SST 在陆地上以 0 K 填充，15 km 及更细网格会导致海岸线附近
+  # 2 m 气温接近 −273 °C。必须显式选择一种处理方式，见
+  # references/era5-input-pitfalls.md。可选值：
+  #   vtable-remove  在 Vtable 中移除 SST，仅用 SKINTEMP（推荐默认）
+  #   fill-missing   在 METGRID.TBL 中给 SST 设 fill_missing
+  #   land-mask      给 SST 加 interp_land_mask = LANDSEA(1)
+  sst_handling: null

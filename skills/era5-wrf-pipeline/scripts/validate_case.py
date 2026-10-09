@@ -76,6 +76,23 @@ def validate(data, metgrid_levels=None):
             errors.append("time_step must be positive seconds")
         elif float(step) > 6 * min(float(domains[0]["dx"]), float(domains[0]["dy"])) / 1000:
             warnings.append("time_step exceeds 6 s per km heuristic; review stability")
+
+        # ERA5 的 SST 在陆地上以 0 K 填充，细网格会在海岸线附近产生接近
+        # 绝对零度的 2m 气温。网格 <= 15 km 时必须显式声明处理方式。
+        # 见 references/era5-input-pitfalls.md
+        source = str(data["driver"].get("source", "")).upper()
+        finest_dx = min(float(dom["dx"]) for dom in domains)
+        handling = data["driver"].get("sst_handling")
+        valid_handling = {"vtable-remove", "fill-missing", "land-mask"}
+        if source == "ERA5" and finest_dx <= 15000:
+            if handling is None:
+                warnings.append(
+                    f"ERA5 with dx={finest_dx:.0f} m (<=15 km) may hit the SST "
+                    "0 K fill-value trap: set driver.sst_handling to one of "
+                    "vtable-remove / fill-missing / land-mask before submitting")
+            elif str(handling) not in valid_handling:
+                errors.append(
+                    f"driver.sst_handling must be one of {sorted(valid_handling)}")
     except (KeyError, TypeError, ValueError, OverflowError) as exc:
         errors.append(f"invalid or missing configuration field: {exc}")
     return errors, warnings

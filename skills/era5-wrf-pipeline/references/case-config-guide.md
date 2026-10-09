@@ -51,7 +51,24 @@ driver:
   interval_seconds: 21600
   area: [39, 104, 17, 141]
   pressure_levels: [1000, 925, 850, 700, 500, 300, 200, 100, 50]
+  sst_handling: vtable-remove  # 见下；ERA5 + <=15 km 网格必须显式声明
 ```
+
+## driver.sst_handling（ERA5 专用，重要）
+
+ERA5 的海表温度 `SST` 在陆地上以 **0 K** 填充。在 15 km 及更细的网格上，
+插值会让**海岸线附近的 2 m 气温接近 −273 °C**，对沿海降水、台风登陆、
+海雾等研究是致命错误。详见 `era5-input-pitfalls.md`。
+
+| 取值 | 含义 |
+|------|------|
+| `vtable-remove` | 在 Vtable 中移除 SST，仅用 SKINTEMP（推荐默认） |
+| `fill-missing` | 在 `METGRID.TBL` 中给 SST 设 `fill_missing` |
+| `land-mask` | 给 SST 加 `interp_land_mask = LANDSEA(1)` |
+| `null` | 未声明；网格 ≤ 15 km 时 `validate_case.py` 会告警 |
+
+`validate_case.py` 的规则：`source == ERA5` 且存在 `dx <= 15000` 的子域时，
+若未声明该字段则告警，若取值不在上表内则报错。
 
 ## 自检规则
 

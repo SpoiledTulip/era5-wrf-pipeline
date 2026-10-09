@@ -57,6 +57,42 @@ class CaseTests(unittest.TestCase):
         self.assertEqual(errors, [])
         self.assertTrue(any("time_step" in w for w in warnings))
 
+    def test_sst_handling_required_for_fine_era5_grid(self):
+        """ERA5 + <=15 km 且未声明 sst_handling 时必须告警。"""
+        self.case["driver"]["sst_handling"] = None
+        errors, warnings = validate_case.validate(self.case)
+        self.assertEqual(errors, [])
+        self.assertTrue(any("sst_handling" in w for w in warnings),
+                        "细节网格的 ERA5 个例必须提示 SST 陷阱")
+
+        # 显式声明后不再告警，且合法值不报错
+        for value in ("vtable-remove", "fill-missing", "land-mask"):
+            self.case["driver"]["sst_handling"] = value
+            errors, warnings = validate_case.validate(self.case)
+            self.assertEqual(errors, [])
+            self.assertFalse(any("sst_handling" in w for w in warnings))
+
+        # 非法值必须报错
+        self.case["driver"]["sst_handling"] = "delete-sst"
+        self.assertTrue(validate_case.validate(self.case)[0])
+
+    def test_sst_handling_not_required_for_coarse_grid(self):
+        """外层网格粗于 15 km 时不强制声明。"""
+        for dom in self.case["domain"]["domains"]:
+            dom["dx"] = dom["dy"] = 27000
+        self.case["driver"]["sst_handling"] = None
+        errors, warnings = validate_case.validate(self.case)
+        self.assertEqual(errors, [])
+        self.assertFalse(any("sst_handling" in w for w in warnings))
+
+    def test_sst_handling_ignored_for_non_era5(self):
+        """非 ERA5 驱动不适用该检查。"""
+        self.case["driver"]["source"] = "FNL"
+        self.case["driver"]["sst_handling"] = None
+        errors, warnings = validate_case.validate(self.case)
+        self.assertEqual(errors, [])
+        self.assertFalse(any("sst_handling" in w for w in warnings))
+
 
 class ExtractionTests(unittest.TestCase):
     def test_pressure_level_units_time_and_missing(self):
