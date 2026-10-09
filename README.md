@@ -34,7 +34,12 @@ SCP 回传 CSV / NPZ 等结果
 
 ## 安装与使用
 
-版本化的安装包与源码 ZIP 可在 [GitHub Releases](https://github.com/SpoiledTulip/era5-wrf-pipeline/releases) 下载。当前版本为 `v0.1.1`（仓库结构已按插件规范整理，见下）。
+版本化的安装包与源码 ZIP 可在 [GitHub Releases](https://github.com/SpoiledTulip/era5-wrf-pipeline/releases) 下载。
+
+- **主分支当前版本：`v0.2.0`**（插件布局 + 绘图与校验修复，待评审）
+- 已发布的最新 Release：`v0.1.1`
+
+仓库结构已按插件规范整理，skill 位于 `skills/era5-wrf-pipeline/`。
 
 ### 用插件方式安装
 

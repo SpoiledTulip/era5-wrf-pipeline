@@ -48,6 +48,15 @@ class RepositoryLayoutTests(unittest.TestCase):
         self.assertEqual(listed.get(plugin["name"]), plugin["version"],
                          "plugin.json 与 marketplace.json 版本号不一致")
 
+    def test_readme_mentions_current_version(self):
+        """README 必须提到当前插件版本，避免文档与元数据脱节。"""
+        import re
+        readme = (ROOT / "README.md").read_text(encoding="utf-8")
+        plugin = json.loads((PLUGIN / "plugin.json").read_text(encoding="utf-8"))
+        versions = set(re.findall(r"v(\d+\.\d+\.\d+)", readme))
+        self.assertIn(plugin["version"], versions,
+                      f"README 未提及当前版本 v{plugin['version']}")
+
 
 class EvalsTests(unittest.TestCase):
     def setUp(self):
