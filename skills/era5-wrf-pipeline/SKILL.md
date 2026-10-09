@@ -14,9 +14,10 @@ description: "区域 WRF 科研流水线：CDS/ERA5 下载、昆山曙光或其�
 - 从用户私有站点配置读取 SSH 别名、账号、工作根、软件和地理数据路径；不要公开私有配置。生成给超算的脚本必须使用 Linux 路径。配置项见 `references/wrf-on-kunshan.md`。
 - ERA5 只用 `cdsapi` 和用户已配置的 `~/.cdsapirc`；绝不读取、复制或回显 key、密码、token。
 - 重计算全部通过 SLURM `sbatch`，禁止在登录节点前台运行 WPS、real 或 WRF。超算 Python 使用站点配置指定的解释器。
-- ERA5 PLEV 和 SFC 分别在独立 `ungrib` 目录运行，使用 `Vtable.ERA-interim.pl`，再把中间文件链接回根目录执行 metgrid。
+- ERA5 PLEV 和 SFC 分别在独立 `ungrib` 目录运行，使用 `Vtable.ERA-interim.pl`，再把中间文件链接回根目录执行 metgrid。若 metgrid 后三维变量（如 `TT`/`UU`/`VV`）变成二维，改用 `Vtable.ECMWF` 重跑 ungrib。
+- **SST 陷阱必须处理**：ERA5 的海表温度在陆地上以 0 K 填充，在 15 km 及更细网格上会导致海岸线附近 2 m 气温接近 −273 °C。凡网格 ≤ 15 km 的沿海个例，提交前必须显式选择一种处理方式（移除 SST / 设 fill_missing / 陆海掩膜插值），见 `references/era5-input-pitfalls.md`。不得静默放过。
 - 只用 `scp` 回传轻量提取结果和图片；绝不回传 8 GB 级原始 `wrfout`。
-- 地图仅作科研示意时可用 Natural Earth；全国范围或需要国界合规时，必须改用符合国家标准的数据或在图注明确“边界仅供示意”，不得把 Natural Earth 边界冒充国界标准。
+- 地图仅作科研示意时可用 Natural Earth；全国范围或需要国界合规时，必须改用符合国家标准的数据或在图注明确“边界仅供示意”，不得把 Natural Earth 边界冒充国界标准。**出图后必须确认国界实际绘制条数大于 0**——命中 0 条会被静默跳过，图上看不出报错。
 
 ## 工作流
 
@@ -36,7 +37,11 @@ description: "区域 WRF 科研流水线：CDS/ERA5 下载、昆山曙光或其�
 - 子域边界距父域边缘至少 5 格且不越界；
 - `num_metgrid_levels`、`e_vert`、`p_top_requested` 与 ERA5 层数/资料顶层合理；
 - 起止时间、`interval_seconds` 与下载时次一致；
-- `time_step` 满足最外层网格约 6 倍原则，并记录保守值。
+- `time_step` 满足最外层网格约 6 倍原则，并记录保守值；
+- 网格 ≤ 15 km 时，`driver.sst_handling` 已显式声明（否则告警，见 `references/era5-input-pitfalls.md`）。
+
+另需人工核验（脚本覆盖不到）：ERA5 请求的 2D 变量清单完整、`LANDSEA` 存在、
+三维变量确为三维、下载时次数与窗口匹配。这些都是“跑完不报错但结果错”的高发区。
 
 ### 阶段 1：ERA5、WPS、real、wrf
 
@@ -89,10 +94,12 @@ description: "区域 WRF 科研流水线：CDS/ERA5 下载、昆山曙光或其�
 - rsl/SLURM/WPS 报错：`references/rsl-error-troubleshooting.md`
 - `case.yaml` 字段和生成规则：`references/case-config-guide.md`
 - 绘图语言、配色、规格、地图边界：`references/plot-conventions.md`
+- **ERA5 输入陷阱（SST 0 K、Vtable、变量清单、land-sea mask）：`references/era5-input-pitfalls.md`**
 - 配置校验：`scripts/validate_case.py`
 - wrfout 轻量提取：`scripts/extract_wrf.py`（子命令 `plane` / `series` / `profile` / `track`）
 - 本地公共绘图模块：`scripts/wxplot.py`
 - 绘图模板（照抄改参数即可）：`scripts/example_plane_field.py`、`scripts/example_track_map.py`
+- 行为评测集：仓库根 `evals/`，用真实场景检验 skill 是否可靠而非只验证“能跑”
 
 ## 环境注意
 
@@ -103,7 +110,15 @@ description: "区域 WRF 科研流水线：CDS/ERA5 下载、昆山曙光或其�
   `~/.local/share/cartopy/shapefiles/natural_earth/physical/` 下有 `ne_10m_land.shp` 等。
 - 国界/省界矢量放用户配置的 `gis_root`（如 `/path/to/gis_data`），
   需要 `ne_10m_admin0/` 与 `ne_10m_admin1/` 两个子目录。
+  ⚠️ 两个目录的判定字段**不同**：`admin_0_boundary_lines_land` 只有
+  `ADM0_LEFT`/`ADM0_RIGHT`（没有 `ADM0_NAME`），`admin_1_states_provinces_lines`
+  才有 `ADM0_NAME`。`wxplot.china_map` 已按文件分别配置；换用其他来源矢量时
+  必须先核对字段名，否则会被静默跳过。
+- `china_map` 默认 `strict=True`：给了 `gis_root` 却一条边界都没画出来会直接抛错。
+  仅在离线演示等场景才显式设 `strict=False`。
 
 ## 交付检查
 
 结束前确认：用户确认过计划书；远端 jobid 和状态已记录；成功产出 `wrfout`；提取文件可读；本地图片打开且无空白/乱码/重叠；图片注明变量、单位、资料来源、模式版本、起报时间；说明哪些结果是模拟、哪些是实况/再分析；没有泄露密钥；没有修改用户指定的只读参考资料。
+
+**科学量核验（跑完不报错 ≠ 结果正确）**：网格 ≤ 15 km 的沿海个例，检查海岸线附近 2 m 气温最小值是否出现接近 −273 °C 的值；国界绘制条数大于 0；提取的诊断量单位与量级合理（如 500 hPa 位势高度约 5000–5900 gpm）。

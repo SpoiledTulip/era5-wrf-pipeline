@@ -34,13 +34,24 @@ SCP 回传 CSV / NPZ 等结果
 
 ## 安装与使用
 
-版本化的安装包与源码 ZIP 可在 [GitHub Releases](https://github.com/SpoiledTulip/era5-wrf-pipeline/releases) 下载。当前版本为 `v0.1.1`。
+版本化的安装包与源码 ZIP 可在 [GitHub Releases](https://github.com/SpoiledTulip/era5-wrf-pipeline/releases) 下载。当前版本为 `v0.1.1`（仓库结构已按插件规范整理，见下）。
 
-推荐让支持本地技能的智能体安装仓库中的 **`era5-wrf-pipeline/` 子目录**，而不是整个仓库。可向 Codex 的 `skill-installer` 提供：
+### 用插件方式安装
+
+仓库遵循 `.claude-plugin/` 标准布局，skill 位于 `skills/era5-wrf-pipeline/`。支持插件的工具可直接加入：
+
+```text
+/plugin marketplace add SpoiledTulip/era5-wrf-pipeline
+/plugin install era5-wrf-pipeline@era5-wrf-skills
+```
+
+### 手动安装
+
+也可让支持本地技能的智能体安装 `skills/era5-wrf-pipeline/` 子目录：
 
 ```text
 用 skill-installer 安装这个 skill：
-https://github.com/SpoiledTulip/era5-wrf-pipeline/tree/main/era5-wrf-pipeline
+https://github.com/SpoiledTulip/era5-wrf-pipeline/tree/main/skills/era5-wrf-pipeline
 ```
 
 也可下载 [era5-wrf-pipeline.skill](era5-wrf-pipeline.skill)。它是 ZIP 格式的分发包，解压后将完整的 `era5-wrf-pipeline/` 文件夹放入目标工具支持的技能目录；安装位置和刷新方式以所用工具为准。
@@ -52,6 +63,13 @@ https://github.com/SpoiledTulip/era5-wrf-pipeline/tree/main/era5-wrf-pipeline
 先确认起止时间、区域、嵌套、物理方案、资源和出图清单；
 我确认实验计划后再下载数据并提交作业。
 ```
+
+## 许可
+
+本项目采用 [MIT License](LICENSE)。
+
+> 早期版本未附许可证，等于默认保留所有权利。若你在该版本下使用过本项目，
+> 请以本版本为准。
 
 ## 环境与私有配置
 
@@ -75,24 +93,24 @@ https://github.com/SpoiledTulip/era5-wrf-pipeline/tree/main/era5-wrf-pipeline
 | `WPS_GEOG_ROOT` | WPS 静态地理数据目录 |
 | `LOCAL_CASE_ROOT` / `GIS_ROOT` | 本地案例与地图数据目录 |
 
-这些是待用户提供的配置字段，不会由 skill 自动加载；不要把占位符直接用于提交作业。详细说明见 [站点配置参考](era5-wrf-pipeline/references/wrf-on-kunshan.md) 和 [案例配置指南](era5-wrf-pipeline/references/case-config-guide.md)。
+这些是待用户提供的配置字段，不会由 skill 自动加载；不要把占位符直接用于提交作业。详细说明见 [站点配置参考](skills/era5-wrf-pipeline/references/wrf-on-kunshan.md) 和 [案例配置指南](skills/era5-wrf-pipeline/references/case-config-guide.md)。
 
 **账号、密钥、SSH 私钥、CDS 凭据及个人目录配置只在本机保留，不提交到仓库。**
 
 本地可在独立虚拟环境安装绘图依赖：
 
 ```bash
-python -m pip install -r era5-wrf-pipeline/requirements-local.txt
+python -m pip install -r skills/era5-wrf-pipeline/requirements-local.txt
 ```
 
-超算端依赖见 [requirements-hpc.txt](era5-wrf-pipeline/requirements-hpc.txt)。该文件是依赖范围参考，尚未在所有站点解析安装验证；优先使用站点验证过的 wrf-python/NetCDF/MPI 环境，不要直接修改共享环境。站点 Python、编译器和 NumPy ABI 兼容性需另行确认。
+超算端依赖见 [requirements-hpc.txt](skills/era5-wrf-pipeline/requirements-hpc.txt)。该文件是依赖范围参考，尚未在所有站点解析安装验证；优先使用站点验证过的 wrf-python/NetCDF/MPI 环境，不要直接修改共享环境。站点 Python、编译器和 NumPy ABI 兼容性需另行确认。
 
 ## 离线示例与测试
 
 不连接 CDS 或超算也可验证配置预检查和绘图：
 
 ```bash
-python era5-wrf-pipeline/scripts/validate_case.py examples/case.example.yaml
+python skills/era5-wrf-pipeline/scripts/validate_case.py examples/case.example.yaml
 python examples/offline_demo.py
 python -m unittest discover -s tests -v
 ```
@@ -100,7 +118,7 @@ python -m unittest discover -s tests -v
 配置示例中的 `num_metgrid_levels` 暂为 `null`，预检查会提示不能提交 real。WPS 完成后从 `met_em` 核验实际层数并填入，再执行：
 
 ```bash
-python era5-wrf-pipeline/scripts/validate_case.py case.yaml --metgrid-levels ACTUAL_LEVEL_COUNT
+python skills/era5-wrf-pipeline/scripts/validate_case.py case.yaml --metgrid-levels ACTUAL_LEVEL_COUNT
 ```
 
 `ACTUAL_LEVEL_COUNT` 必须替换为真实文件中的整数。`e_vert` 是模式垂直网格设置，不与输入资料层数固定相差一层。
@@ -125,7 +143,7 @@ GitHub Actions 在 Python 3.11/3.12 上执行相同离线测试。测试包含�
 
 绘图规格：`draft` 为 150 dpi PNG，`presentation` 为 200 dpi PNG，`publication` 为 300 dpi PNG 和 PDF。默认只画模型自身结果，不自动添加实况或模型间对比。
 
-完整指令入口：[SKILL.md](era5-wrf-pipeline/SKILL.md)。
+完整指令入口：[SKILL.md](skills/era5-wrf-pipeline/SKILL.md)。
 
 ## 使用边界
 
