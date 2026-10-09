@@ -7,7 +7,11 @@
 
 面向区域数值天气预报、天气个例研究和 WRF 结果分析。包含工作流指令、站点配置说明、报错诊断参考及轻量提取、绘图脚本；以昆山曙光 SLURM 环境为参考，也可根据实际站点调整。
 
-> 这不是开箱即用的一键 WRF 程序。下载脚本、namelist 和作业脚本需要由智能体按确认后的实验配置生成；使用者须具备 CDS 访问权限、SSH 连接和已安装的 WRF/WPS 环境。
+> 这不是开箱即用的一键 WRF 程序。使用者须具备 CDS 访问权限、SSH 连接和已安装的 WRF/WPS 环境。
+>
+> 但配置**不是现场手写的**：`gen_namelist.py` 与 `gen_era5_download.py` 由 `case.yaml`
+> 生成 namelist、作业脚本与 ERA5 下载脚本。两个脚本都是纯函数——不联网、不提交作业，
+> 因此可离线验证、可入版本控制；同一份配置任何时候生成的结果都逐字节相同。
 
 > **许可**：MIT License，可自由使用、修改、分发与商用，**要求保留原始版权声明**。
 > 详见 [LICENSE](LICENSE)；`v0.1.1` 及更早版本未附许可证。
@@ -152,11 +156,25 @@ GitHub Actions 在 Python 3.11/3.12 上执行相同离线测试。测试包含�
 
 | 文件 | 用途 |
 | --- | --- |
+| `scripts/gen_namelist.py` | 由 case.yaml 生成 namelist.wps/input、sbatch 与提交链（纯函数，可复现） |
+| `scripts/gen_era5_download.py` | 由 case.yaml 生成 ERA5 下载脚本与自检脚本（只生成不下载） |
 | `scripts/validate_case.py` | 校验案例 YAML 的部分机械一致性，不代替科学设计审查 |
 | `scripts/extract_wrf.py` | `plane` 平面场、`series` 序列、`profile` 垂直廓线、`track` 台风路径 |
 | `scripts/wxplot.py` | 公共地图、配色、字体、风场和图片输出规范 |
 | `scripts/example_plane_field.py` | 平面场绘图示例 |
 | `scripts/example_track_map.py` | 模拟路径绘图示例；仅在明确要求时叠加对比资料 |
+
+配置生成与下载脚本生成的用法：
+
+```bash
+python skills/era5-wrf-pipeline/scripts/gen_namelist.py case.yaml --out-dir . --metgrid-levels 38
+python skills/era5-wrf-pipeline/scripts/gen_era5_download.py case.yaml --out-dir data/
+```
+
+`gen_namelist.py` 在 `num_metgrid_levels` 未知时**只生成 namelist.wps**，
+不会写出一个层数错误的 namelist.input；WPS 完成后用 `--metgrid-levels` 补齐。
+`gen_era5_download.py` 会校验 `area` 必须是 `[North, West, South, East]` 顺序——
+写错 CDS 不报错，只会下载错误区域。
 
 绘图规格：`draft` 为 150 dpi PNG，`presentation` 为 200 dpi PNG，`publication` 为 300 dpi PNG 和 PDF。默认只画模型自身结果，不自动添加实况或模型间对比。
 

@@ -29,7 +29,15 @@ description: "区域 WRF 科研流水线：CDS/ERA5 下载、昆山曙光或其�
 
 ### 阶段 0：配置与一致性自检
 
-在超算案例目录建立 `case.yaml`、`data/`、`wps/`、`wrf/`、`extract/`、`plots/`、`logs/`、`status/`。按 `references/case-config-guide.md` 生成 namelist 和 sbatch，不手改已生成文件。
+在超算案例目录建立 `case.yaml`、`data/`、`wps/`、`wrf/`、`extract/`、`plots/`、`logs/`、`status/`。
+
+**namelist 与 sbatch 由脚本生成，不手写、不现场编造**（现场生成不可复现：同一份配置今天和下周产出的文件可能不同）：
+
+```bash
+python scripts/gen_namelist.py case.yaml --out-dir .
+```
+
+`gen_namelist.py` 是纯函数（yaml 进、文本出，不联网不提交），会先跑 `validate_case` 校验，通过后才生成 `namelist.wps`、`namelist.input`、`wps/real/wrf.sbatch`、`submit_chain.sh` 与 `generation_report.txt`；并保证 wps 与 input 两边的 `e_we`/`e_sn`/`dx`/时间/嵌套参数逐项一致。生成后的文件不手改——要改就改 `case.yaml` 再重新生成。
 
 先运行 `scripts/validate_case.py case.yaml`，检查网格整除和子域边界、配置时间窗、资料顶层覆盖及 time_step 经验上限。WPS 后填写实际层数，再加 `--metgrid-levels <实际值>` 核对。脚本不读取数据文件，也不证明实验设计有效；整个工作流仍须完成：
 
@@ -45,7 +53,19 @@ description: "区域 WRF 科研流水线：CDS/ERA5 下载、昆山曙光或其�
 
 ### 阶段 1：ERA5、WPS、real、wrf
 
-1. 在 `~/.cdsapirc` 已存在的前提下，用案例配置生成并提交 ERA5 PLEV/SFC 下载；请求带重试、目标文件存在且非空则跳过。
+1. 在 `~/.cdsapirc` 已存在的前提下，先用脚本生成 ERA5 下载脚本再运行：
+
+   ```bash
+   python scripts/gen_era5_download.py case.yaml --out-dir data/
+   python data/download_era5.py --out-dir data/
+   python data/verify_era5.py --dir data/
+   ```
+
+   `gen_era5_download.py` 只生成不下载：气压层与单层是**两个独立数据集**，
+   生成两份请求。它会先校验 `driver.area` 的顺序必须是
+   **[North, West, South, East]**——写错顺序 CDS 不报错、只会下载错误区域。
+   生成的下载脚本幂等（目标文件存在且非空则跳过），可安全重跑。
+   **下载耗配额，先确认请求摘要再执行。**
 2. 通过配置的 SSH 别名建立案例目录，提交 WPS（geogrid → PLEV ungrib → SFC ungrib → metgrid）。
 3. WPS 成功后提交 real，检查 `wrfinput_d01[/d02]` 和 `wrfbdy_d01` 存在。
 4. 以 SLURM 依赖串联 `wrf`：`--dependency=afterok:<real_jobid>`；记录所有 jobid、提交命令、时间和状态到 `status/jobs.json`。
@@ -95,6 +115,8 @@ description: "区域 WRF 科研流水线：CDS/ERA5 下载、昆山曙光或其�
 - `case.yaml` 字段和生成规则：`references/case-config-guide.md`
 - 绘图语言、配色、规格、地图边界：`references/plot-conventions.md`
 - **ERA5 输入陷阱（SST 0 K、Vtable、变量清单、land-sea mask）：`references/era5-input-pitfalls.md`**
+- 生成 namelist 与 sbatch：`scripts/gen_namelist.py`（纯函数，可复现；先校验后生成）
+- 生成 ERA5 下载脚本：`scripts/gen_era5_download.py`（只生成不下载；校验 area 顺序）
 - 配置校验：`scripts/validate_case.py`
 - wrfout 轻量提取：`scripts/extract_wrf.py`（子命令 `plane` / `series` / `profile` / `track`）
 - 本地公共绘图模块：`scripts/wxplot.py`
