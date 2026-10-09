@@ -40,7 +40,7 @@ def main():
     ax.barbs(lon[::12, ::12], lat[::12, ::12], u[::12, ::12], v[::12, ::12],
              length=4.2, linewidth=0.4, transform=ccrs.PlateCarree(), zorder=5)
     wxplot.add_colorbar(fig, m, ax, "SLP (hPa)", orientation="horizontal")
-    ax.set_title("修复后底图：SLP + 10 m 风（v0.2.0）",
+    ax.set_title("修复后底图：SLP + 10 m 风（v0.2.1）",
                  fontsize=13, fontweight="bold", pad=10)
     wxplot.footnote(ax, "合成演示数据 | 非 ERA5/WRF 结果 | 边界：Natural Earth 仅供示意")
     wxplot.save(fig, args.out, style="draft")

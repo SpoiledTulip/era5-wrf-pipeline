@@ -1,6 +1,6 @@
 {
   "skill_name": "era5-wrf-pipeline",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "notes": "评测场景用于检验 skill 是否可靠，而不是检验智能体会不会写代码。每个场景的 expected_output 描述可核验的行为要点；建议由人工或评审模型逐条对照打分。前三个场景直接对应已修复的缺陷，属于回归评测。",
   "evals": [
     {

@@ -222,6 +222,8 @@ def cmd_track(args):
             slp[:3, :] = np.nan; slp[-3:, :] = np.nan
             slp[:, :3] = np.nan; slp[:, -3:] = np.nan
             if prev is None:
+                if not np.isfinite(slp).any():
+                    raise SystemExit(f"时次 {_stamp(ds, t)} 的 SLP 全为 NaN，无法定位中心")
                 j, i = np.unravel_index(np.nanargmin(slp), slp.shape)
             else:
                 pj, pi = prev
@@ -229,6 +231,8 @@ def cmd_track(args):
                 j0, i0 = max(0, pj - win), max(0, pi - win)
                 j1, i1 = min(slp.shape[0], pj + win + 1), min(slp.shape[1], pi + win + 1)
                 sub = slp[j0:j1, i0:i1]
+                if not np.isfinite(sub).any():
+                    raise SystemExit(f"时次 {_stamp(ds, t)} 搜索窗内 SLP 全为 NaN，无法跟踪中心")
                 dj, di = np.unravel_index(np.nanargmin(sub), sub.shape)
                 j, i = j0 + dj, i0 + di
                 # 跟丢检测：窗内最低点若贴着窗口边缘，说明真实中心可能在窗外，
@@ -240,6 +244,12 @@ def cmd_track(args):
             prev = (j, i)
             rows.append((_stamp(ds, t), round(float(lat[j, i]), 3),
                          round(float(lon[j, i]), 3), round(float(slp[j, i]), 1)))
+        if warned:
+            first = "; ".join(f"{stamp}: {why}" for stamp, why in warned[:3])
+            raise SystemExit(
+                f"疑似台风中心跟丢（{len(warned)} 次，{first}）。"
+                " 未生成可信路径；请增大 --window 或确认中心全程在域内。"
+            )
         out_path = Path(args.out)
         out_path.parent.mkdir(parents=True, exist_ok=True)
         with out_path.open("w", newline="", encoding="utf-8") as f:
@@ -247,13 +257,6 @@ def cmd_track(args):
             w.writerow(["time", "lat", "lon", "slp_hPa"])
             w.writerows(rows)
         print(f"wrote {out_path} ({len(rows)} rows, window={args.window})")
-        if warned:
-            print(f"⚠️ 疑似跟丢 {len(warned)} 次（路径可能不可信）：")
-            for stamp, why in warned[:5]:
-                print(f"   {stamp}  {why}")
-            if len(warned) > 5:
-                print(f"   ... 另有 {len(warned) - 5} 次")
-            print("   建议：加大 --window，或先确认台风中心全程在域内。")
     finally:
         ds.close()
     return 0

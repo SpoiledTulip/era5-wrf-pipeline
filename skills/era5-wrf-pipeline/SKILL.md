@@ -5,7 +5,7 @@ description: "区域 WRF 科研流水线：CDS/ERA5 下载、昆山曙光或其�
 
 # ERA5 WRF Pipeline
 
-把 ERA5 驱动的区域 WRF 实验做成可复现、可诊断、可回传和可绘图的案例。所有实验必须由案例配置生成，不能把台风个例写死。
+把 ERA5 驱动的区域 WRF 实验做成可复用、可诊断、可回传和可绘图的案例。所有实验必须由案例配置生成，不能把台风个例写死。
 
 ## 硬性边界
 
@@ -15,9 +15,9 @@ description: "区域 WRF 科研流水线：CDS/ERA5 下载、昆山曙光或其�
 - ERA5 只用 `cdsapi` 和用户已配置的 `~/.cdsapirc`；绝不读取、复制或回显 key、密码、token。
 - 重计算全部通过 SLURM `sbatch`，禁止在登录节点前台运行 WPS、real 或 WRF。超算 Python 使用站点配置指定的解释器。
 - ERA5 PLEV 和 SFC 分别在独立 `ungrib` 目录运行，使用 `Vtable.ERA-interim.pl`，再把中间文件链接回根目录执行 metgrid。若 metgrid 后三维变量（如 `TT`/`UU`/`VV`）变成二维，改用 `Vtable.ECMWF` 重跑 ungrib。
-- **SST 陷阱必须处理**：ERA5 的海表温度在陆地上以 0 K 填充，在 15 km 及更细网格上会导致海岸线附近 2 m 气温接近 −273 °C。凡网格 ≤ 15 km 的沿海个例，提交前必须显式选择一种处理方式（移除 SST / 设 fill_missing / 陆海掩膜插值），见 `references/era5-input-pitfalls.md`。不得静默放过。
+- **SST 陷阱必须处理**：ERA5 的海表温度在陆地上以 0 K 填充，在 15 km 及更细网格上可能导致海岸线附近 2 m 气温接近 −273 °C。当前机械校验无法读取地形判断是否沿海，因此所有 ERA5 细网格案例都会保守提示；提交前必须显式选择一种处理方式，见 `references/era5-input-pitfalls.md`。
 - 只用 `scp` 回传轻量提取结果和图片；绝不回传 8 GB 级原始 `wrfout`。
-- 地图仅作科研示意时可用 Natural Earth；全国范围或需要国界合规时，必须改用符合国家标准的数据或在图注明确“边界仅供示意”，不得把 Natural Earth 边界冒充国界标准。**出图后必须确认国界实际绘制条数大于 0**——命中 0 条会被静默跳过，图上看不出报错。
+- 地图仅作科研示意时可用 Natural Earth；全国范围或需要国界合规时，必须改用符合国家标准的数据或在图注明确“边界仅供示意”，不得把 Natural Earth 边界冒充国界标准。默认 `strict=True` 时命中 0 条会直接报错；只有显式 `strict=False` 才会告警后继续出图。
 
 ## 工作流
 
@@ -121,7 +121,7 @@ python scripts/gen_namelist.py case.yaml --out-dir .
 - wrfout 轻量提取：`scripts/extract_wrf.py`（子命令 `plane` / `series` / `profile` / `track`）
 - 本地公共绘图模块：`scripts/wxplot.py`
 - 绘图模板（照抄改参数即可）：`scripts/example_plane_field.py`、`scripts/example_track_map.py`
-- 行为评测集：仓库根 `evals/`，用真实场景检验 skill 是否可靠而非只验证“能跑”
+- 行为评测集：仓库根 `evals/`，用代表性场景提示检验 skill 的行为覆盖，不等同于真实超算端到端验证
 
 ## 环境注意
 
@@ -137,7 +137,10 @@ python scripts/gen_namelist.py case.yaml --out-dir .
   才有 `ADM0_NAME`。`wxplot.china_map` 已按文件分别配置；换用其他来源矢量时
   必须先核对字段名，否则会被静默跳过。
 - `china_map` 默认 `strict=True`：给了 `gis_root` 却一条边界都没画出来会直接抛错。
-  仅在离线演示等场景才显式设 `strict=False`。
+   仅在离线演示等场景才显式设 `strict=False`。
+
+v0.2.0 起 skill 从旧路径 `era5-wrf-pipeline/` 迁移到
+`skills/era5-wrf-pipeline/`；旧版安装不会自动迁移，升级时请重新安装。
 
 ## 交付检查
 

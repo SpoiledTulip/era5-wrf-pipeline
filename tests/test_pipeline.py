@@ -148,7 +148,6 @@ class ExtractionTests(unittest.TestCase):
         self.assertFalse(extract_wrf._edge_hit(5, 5, shape), "窗内不应误报")
         self.assertFalse(extract_wrf._edge_hit(1, 9, shape), "次边缘不应误报")
 
-
 class PlotTests(unittest.TestCase):
     def test_offline_demo_nonblank(self):
         import matplotlib.image as image

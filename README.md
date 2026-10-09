@@ -46,7 +46,7 @@ SCP 回传 CSV / NPZ 等结果
 
 版本化的安装包与源码 ZIP 可在 [GitHub Releases](https://github.com/SpoiledTulip/era5-wrf-pipeline/releases) 下载。
 
-- **主分支当前版本：`v0.2.0`**（插件布局 + 绘图与校验修复，待评审）
+- **主分支当前版本：`v0.2.1`**（复查修复，尚未发布 Release）
 - 已发布的最新 Release：`v0.1.1`
 
 仓库结构已按插件规范整理，skill 位于 `skills/era5-wrf-pipeline/`。
@@ -89,7 +89,7 @@ MIT License · Copyright (c) 2026 SpoiledTulip
 ```
 
 > ⚠️ `v0.1.1` 及更早的版本未附许可证，等同「保留所有权利」。
-> 若你在那些版本下使用过本项目，请以 `v0.2.0` 及以后为准。
+> 若你在那些版本下使用过本项目，请以 `v0.2.1` 及以后为准。
 > 各版本的许可状态以对应 tag 中的 `LICENSE` 文件为准。
 
 ## 环境与私有配置
@@ -148,7 +148,7 @@ python skills/era5-wrf-pipeline/scripts/validate_case.py case.yaml --metgrid-lev
 
 ![合成气压和风场绘图示例](examples/synthetic_slp.png)
 
-GitHub Actions 在 Python 3.11/3.12 上执行相同离线测试。测试包含配置有效/无效分支、模拟数据适配器的 NPZ 序列化、时间戳和绘图非空检查；不代表真实 wrfout 的全部诊断量、单位、插值或完整 ERA5 → WRF 工作流已验证。
+GitHub Actions 在 Python 3.11/3.12 上执行相同离线测试。测试包含配置有效/无效分支、模拟数据适配器的 NPZ 序列化、时间戳和绘图非空检查；不代表真实 wrfout 的全部诊断量、单位、插值或完整 ERA5 → WRF 工作流已验证。未设置 `GIS_ROOT` 时，Natural Earth 集成测试会跳过，不应视为通过。
 
 `v0.1.1` 同时修正了指定时次的 hPa 等压面插值、地面变量转换和配图风场的地球坐标旋转。平面产品增加单位与 UTC 时间元数据；廓线高度键从 `height_gpm` 改为 `height_m`，下游脚本需相应更新。真实资料与科学诊断仍需使用者独立核验。
 

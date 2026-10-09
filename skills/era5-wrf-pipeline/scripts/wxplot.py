@@ -188,7 +188,8 @@ def china_map(ax, extent, gis_root=None, language="en",
               f"或改用 ne_scale='50m'。")
 
     # ── 国界 / 省界：按各文件的字段名分别筛选 ──────────────────────
-    border_drawn = 0
+    admin0_drawn = 0
+    admin1_drawn = 0
     if gis_root:
         root = os.fspath(gis_root)
         for rel, color, width, keys in BOUNDARY_FILES:
@@ -206,11 +207,19 @@ def china_map(ax, extent, gis_root=None, language="en",
             if hit == 0:
                 print(f"[wxplot] ⚠️ {os.path.basename(path)} 命中 0 条："
                       f"字段 {keys} 未匹配到中国，该层不会出现在图上。")
-            border_drawn += hit
+            if "admin_0" in os.path.basename(path):
+                admin0_drawn += hit
+            else:
+                admin1_drawn += hit
 
-    if gis_root and border_drawn == 0:
-        message = ("[wxplot] 未画出任何国界/省界（命中 0 条）。"
-                   "科研图缺国界是合规问题：请核对 gis_root 下矢量的字段名，"
+    if gis_root and (admin0_drawn == 0 or admin1_drawn == 0):
+        missing = []
+        if admin0_drawn == 0:
+            missing.append("国界")
+        if admin1_drawn == 0:
+            missing.append("省界")
+        message = (f"[wxplot] 未画出{'/'.join(missing)}（命中 0 条）。"
+                   "请核对 gis_root 下矢量的字段名和文件，"
                    "或在图注明确「边界仅供示意」。")
         if strict:
             raise RuntimeError(message)
@@ -232,6 +241,10 @@ def china_map(ax, extent, gis_root=None, language="en",
             continue
         x, y = PROVINCE_XY[p]
         ox, oy = LABEL_OFFSETS.get(p, (0.0, 0.0))  # 港澳等近邻错开
+        width = max(float(extent[1] - extent[0]), 1e-6)
+        height = max(float(extent[3] - extent[2]), 1e-6)
+        ox *= min(width / 20.0, 1.0)
+        oy *= min(height / 22.0, 1.0)
         ax.text(x + ox, y + oy, names.get(p, p), ha="center", va="center",
                 fontsize=10, color="#666666",
                 transform=ccrs.PlateCarree(), zorder=5,
