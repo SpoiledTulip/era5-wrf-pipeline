@@ -7,7 +7,7 @@ import sys
 import numpy as np
 
 ROOT = Path(__file__).resolve().parents[1]
-sys.path.insert(0, str(ROOT / "era5-wrf-pipeline" / "scripts"))
+sys.path.insert(0, str(ROOT / "skills" / "era5-wrf-pipeline" / "scripts"))
 import wxplot
 import matplotlib.pyplot as plt
 import cartopy.crs as ccrs
