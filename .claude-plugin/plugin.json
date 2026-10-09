@@ -1,0 +1,20 @@
+{
+  "name": "era5-wrf-pipeline",
+  "version": "0.2.0",
+  "description": "区域 WRF 科研流水线：CDS/ERA5 下载、SLURM 上的 WPS/real/wrf 作业、wrfout 轻量提取与本地 matplotlib/cartopy 气象图。",
+  "author": {
+    "name": "SpoiledTulip"
+  },
+  "repository": "https://github.com/SpoiledTulip/era5-wrf-pipeline",
+  "license": "MIT",
+  "keywords": [
+    "wrf",
+    "wps",
+    "era5",
+    "cds",
+    "meteorology",
+    "atmospheric-science",
+    "slurm",
+    "hpc"
+  ]
+}

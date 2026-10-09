@@ -1,0 +1,14 @@
+{
+  "name": "era5-wrf-skills",
+  "owner": {
+    "name": "SpoiledTulip"
+  },
+  "plugins": [
+    {
+      "name": "era5-wrf-pipeline",
+      "source": "./",
+      "description": "区域 WRF 科研流水线：ERA5 驱动、SLURM 作业、wrfout 轻量提取与气象绘图。",
+      "version": "0.2.0"
+    }
+  ]
+}
